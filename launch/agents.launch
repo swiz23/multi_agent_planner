@@ -9,6 +9,7 @@
     <node
         type="motion_planner"
         name="motion_planner"
-        pkg="multi_agent_planner" />
+        pkg="multi_agent_planner"
+        output="screen" />
 
 </launch>

@@ -3,8 +3,13 @@
 #include <geometry_msgs/Point.h>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include "multi_agent_planner/get_plan.h"
 #include "multi_agent_planner/agent_info.h"
+
+using std::vector;
+using std::cout;
+using std::endl;
 
 class Motion_Planner
 {
@@ -18,9 +23,8 @@ private:
     void create_roadmap();
     bool get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res);
     void agent_start_pose_callback(const multi_agent_planner::agent_info &msg);
-    std::vector<geometry_msgs::Point> path_list;
-
-
+    vector<vector<geometry_msgs::Point>> archived_paths;
+    vector<multi_agent_planner::agent_info> agent_start_poses;
 };
 
 Motion_Planner::Motion_Planner(ros::NodeHandle *node_handle)
@@ -35,12 +39,43 @@ Motion_Planner::Motion_Planner(ros::NodeHandle *node_handle)
 
 bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res)
 {
+    geometry_msgs::Pose2D start_pose, goal_pose;
+    vector<geometry_msgs::Point> path_list;
+    goal_pose = req.goal_pose;
+    bool found = false;
+    for (auto agent : agent_start_poses)
+    {
+        if (agent.serial_id == req.serial_id)
+        {
+            start_pose = agent.start_pose;
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+    {
+        ROS_ERROR("That agent does not yet exist.");
+    }
     return true;
+
 }
 
 void Motion_Planner::agent_start_pose_callback(const multi_agent_planner::agent_info &msg)
 {
-    ;
+    bool found = false;
+    for (size_t i{0}; i < agent_start_poses.size(); i++)
+    {
+        if (agent_start_poses.at(i).serial_id == msg.serial_id)
+        {
+            agent_start_poses.at(i) = msg;
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+    {
+        agent_start_poses.push_back(msg);
+    }
 }
 
 void Motion_Planner::create_roadmap()
@@ -53,8 +88,6 @@ void Motion_Planner::create_roadmap()
     marker.type = visualization_msgs::Marker::SPHERE_LIST;
     marker.action = visualization_msgs::Marker::ADD;
     marker.pose.orientation.w = 1.0;
-    marker.pose.position.x = -5.0;
-    marker.pose.position.y = -5.0;
     marker.scale.x = 0.25;
     marker.scale.y = 0.25;
     marker.scale.z = 0.25;
