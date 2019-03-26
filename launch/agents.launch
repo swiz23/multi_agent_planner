@@ -1,0 +1,14 @@
+<launch>
+
+    <node
+        type="rviz"
+        name="rviz"
+        pkg="rviz"
+        args="-d $(find multi_agent_planner)/rviz/rviz_config.rviz" />
+
+    <node
+        type="motion_planner"
+        name="motion_planner"
+        pkg="multi_agent_planner" />
+
+</launch>
