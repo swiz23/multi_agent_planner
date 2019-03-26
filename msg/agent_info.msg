@@ -1,0 +1,2 @@
+string serial_id
+geometry_msgs/Pose2D start_pose
