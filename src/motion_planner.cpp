@@ -79,7 +79,8 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
     }
     if (!found)
     {
-        ROS_ERROR("That agent does not yet exist.");
+        ROS_ERROR("%s does not yet exist - Exiting service...", req.serial_id.c_str());
+        return false;
     }
 
     geometry_msgs::Point start_point, goal_point;
@@ -144,10 +145,10 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
     vector<Grid_node> open;
     Path final_path {};
     final_path.serial_id = req.serial_id;
-    Grid_node grid[X_MAX][Y_MAX] = {};
-    for (size_t i{0}; i < X_MAX; i++)
+    Grid_node grid[X_MAX+1][Y_MAX+1] = {};
+    for (size_t i{0}; i <= X_MAX; i++)
     {
-        for (size_t j{0}; j < Y_MAX; j++)
+        for (size_t j{0}; j <= Y_MAX; j++)
         {
             Grid_node n = {};
             n.stat = FREE;
@@ -199,7 +200,7 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
         {
             x_nbr = x_curr + x_nbr_arr[i];
             y_nbr = y_curr + y_nbr_arr[i];
-            if (x_nbr >= 0 && x_nbr < X_MAX && y_nbr >= 0 && y_nbr < Y_MAX)
+            if (x_nbr >= 0 && x_nbr <= X_MAX && y_nbr >= 0 && y_nbr <= Y_MAX)
             {
                 if (!grid[x_nbr][y_nbr].is_closed && grid[x_nbr][y_nbr].stat != OCCUPIED)
                 {
