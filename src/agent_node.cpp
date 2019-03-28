@@ -9,6 +9,8 @@
 #include "multi_agent_planner/agent_info.h"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_ros/transform_broadcaster.h"
+#include <cstdlib>
+#include <ctime>
 
 using std::vector;
 
@@ -29,7 +31,6 @@ private:
     double x_start;
     double y_start;
     double yaw_start;
-    int id;
     double agent_color[3];
     bool done;
     bool rotate_only;
@@ -52,12 +53,11 @@ private:
 Agent_Robot::Agent_Robot(ros::NodeHandle *node_handle, std::string serial_id, double x, double y, double yaw)
     : node(*node_handle), serial_id(serial_id), x_start(x), y_start(y), yaw_start(yaw)
 {
-    char a = serial_id.at(6);
-    id = a - '0';
-    agent_color[0] = 0.0;
-    agent_color[1] = 0.0;
-    agent_color[2] = 0.0;
-    agent_color[id-1] = 1.0;
+    int a = serial_id.at(6);
+    srand (time(NULL)+ a);
+    agent_color[0] = (rand() % 100)*0.01;
+    agent_color[1] = (rand() % 100)*0.01;
+    agent_color[2] = (rand() % 100)*0.01;
     pose.x = x_start;
     pose.y = y_start;
     pose.theta = yaw_start * pi / 180.0;
@@ -136,7 +136,7 @@ bool Agent_Robot::agent_update_goal(multi_agent_planner::update_goal::Request &r
     goal_pose.theta *=  pi / 180.0;
     if (goal_pose.x == pose.x && goal_pose.y == pose.y && goal_pose.theta == pose.theta)
     {
-        ROS_INFO("The agent is already at the goal! Please choose a different goal position.");
+        ROS_INFO("%s is already at the goal! Please choose a different goal position.", serial_id.c_str());
         return false;
     }
     else if (goal_pose.x == pose.x && goal_pose.y == pose.y && goal_pose.theta != pose.theta)
