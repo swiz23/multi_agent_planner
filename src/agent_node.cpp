@@ -23,6 +23,7 @@ int main( int argc, char** argv )
     start_pose.y = atof(argv[3]);
     start_pose.theta = atof(argv[4]) * pi / 180.0;
 
+    // Create instance of Agent_Robot
     Agent_Robot agent(&n, argv[1], start_pose);
     ros::spin();
     return 0;

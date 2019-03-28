@@ -1,5 +1,6 @@
 <launch>
 
+    <!-- Args for the Agent Nodes -->
     <arg name="serial_id_1"                         default="agent_1" />
     <arg name="x_1"                                 default="2" />
     <arg name="y_1"                                 default="0" />
@@ -21,12 +22,14 @@
         pkg="rviz"
         args="-d $(find multi_agent_planner)/rviz/rviz_config.rviz" />
 
+    <!-- Motion Planner Node -->
     <node
         type="motion_planner_node"
         name="motion_planner_node"
         pkg="multi_agent_planner"
         output="screen" />
 
+    <!-- Agent 1 Node -->
     <node
         type="agent_node"
         name="$(arg serial_id_1)_node"
@@ -35,6 +38,7 @@
         args="$(arg serial_id_1) $(arg x_1) $(arg y_1) $(arg theta_1)"
         output="screen" />
 
+    <!-- Agent 2 Node -->
     <node
         type="agent_node"
         name="$(arg serial_id_2)_node"
@@ -43,6 +47,7 @@
         args="$(arg serial_id_2) $(arg x_2) $(arg y_2) $(arg theta_2)"
         output="screen" />
 
+    <!-- Agent 3 Node (for fun)-->
     <!-- <node
         type="agent_node"
         name="$(arg serial_id_3)_node"
