@@ -1,16 +1,17 @@
 #include <ros/ros.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
+#include <tf2/LinearMath/Quaternion.h>
 #include <geometry_msgs/Point.h>
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include "multi_agent_planner/get_plan.h"
 #include "multi_agent_planner/update_goal.h"
 #include "multi_agent_planner/agent_info.h"
-#include "tf2/LinearMath/Quaternion.h"
-#include "tf2_ros/transform_broadcaster.h"
+#include "multi_agent_planner/get_plan.h"
+#include <algorithm>
+#include <iostream>
 #include <cstdlib>
+#include <vector>
 #include <ctime>
+
 
 using std::vector;
 
@@ -19,52 +20,48 @@ const double pi = 3.1415926535897;
 class Agent_Robot
 {
 public:
-    Agent_Robot(ros::NodeHandle *node_handle, std::string serial_id, double x, double y, double yaw);
+    Agent_Robot(ros::NodeHandle *node_handle, std::string serial_id, geometry_msgs::Pose2D start_pose, const double period = 10.0, const double timer_hz = 30.0);
 private:
     ros::NodeHandle node;
+    ros::Publisher pub_agent_feedback;
     ros::Publisher pub_agent_marker;
     ros::Publisher pub_path_marker;
-    ros::Publisher pub_agent_feedback;
     ros::ServiceServer srv_update_goal;
     ros::ServiceClient srv_get_plan;
     ros::Timer tmr_odom;
-    double x_start;
-    double y_start;
-    double yaw_start;
+
+    const double period;
+    const double timer_hz;
     double agent_color[3];
-    bool done;
-    bool rotate_only;
-    const double period {10.0};
-    const double timer_hz {30.0};
-    double dt_position;
     double dt_orientation;
+    double dt_position;
+    bool rotate_only;
+    bool done;
     std::string serial_id;
     geometry_msgs::Pose2D pose;
     geometry_msgs::Pose2D goal_pose;
     vector<geometry_msgs::Point> point_list;
-    void agent_update_transform(geometry_msgs::Pose2D &pose);
+
     void agent_build_path_marker(const vector<geometry_msgs::Point> &vect);
-    void agent_build_agent_marker();
+    void agent_update_transform(const geometry_msgs::Pose2D &pose);
     void agent_update_pose(const ros::TimerEvent &e);
+    void agent_build_agent_marker();
     bool agent_update_goal(multi_agent_planner::update_goal::Request &req, multi_agent_planner::update_goal::Response &res);
 
 };
 
-Agent_Robot::Agent_Robot(ros::NodeHandle *node_handle, std::string serial_id, double x, double y, double yaw)
-    : node(*node_handle), serial_id(serial_id), x_start(x), y_start(y), yaw_start(yaw)
+Agent_Robot::Agent_Robot(ros::NodeHandle *node_handle, std::string serial_id, geometry_msgs::Pose2D start_pose, const double period, const double timer_hz)
+    : node(*node_handle), serial_id(serial_id), pose(start_pose), period(period), timer_hz(timer_hz)
 {
     int a = serial_id.at(6);
     srand (time(NULL)+ a);
     agent_color[0] = (rand() % 100)*0.01;
     agent_color[1] = (rand() % 100)*0.01;
     agent_color[2] = (rand() % 100)*0.01;
-    pose.x = x_start;
-    pose.y = y_start;
-    pose.theta = yaw_start * pi / 180.0;
-    done = true;
-    dt_position = 0;
     dt_orientation = 0;
+    dt_position = 0;
     rotate_only = false;
+    done = true;
 
     pub_agent_marker = node.advertise<visualization_msgs::Marker>("visualization/base_link", 100);
     pub_path_marker = node.advertise<visualization_msgs::Marker>("visuallization/path", 100);
@@ -78,42 +75,34 @@ Agent_Robot::Agent_Robot(ros::NodeHandle *node_handle, std::string serial_id, do
 void Agent_Robot::agent_update_pose(const ros::TimerEvent &e)
 {
     static int cntr{0}, rotate_cntr{0}, index {0};
-    if (!done && !rotate_only)
+    static double num_cycles_in_period = period * timer_hz;
+
+    if (!done)
     {
-        pose.x += (point_list.at(index + 1).x - point_list.at(index).x)*dt_position;
-        pose.y += (point_list.at(index + 1).y - point_list.at(index).y)*dt_position;
-        if (rotate_cntr < period * timer_hz)
-            pose.theta += dt_orientation;
-        cntr++;
-        rotate_cntr++;
-        if (cntr*dt_position >= 1)
+        if (!rotate_only)
         {
-            cntr = 0;
-            index++;
-            pose.x = point_list.at(index).x;
-            pose.y = point_list.at(index).y;
-            if (index == point_list.size()-1)
+            pose.x += (point_list.at(index + 1).x - point_list.at(index).x)*dt_position;
+            pose.y += (point_list.at(index + 1).y - point_list.at(index).y)*dt_position;
+            if (cntr*dt_position >= 1)
             {
-                pose.theta = goal_pose.theta;
-                done = true;
-                index = 0;
-                rotate_cntr = 0;
-                ROS_INFO("Target goal has been reached by %s.", serial_id.c_str());
+                cntr = 0;
+                index++;
+                pose.x = point_list.at(index).x;
+                pose.y = point_list.at(index).y;
             }
+            cntr++;
         }
-    }
-    else if (!done && rotate_only)
-    {
         pose.theta += dt_orientation;
-        rotate_cntr++;
-        if (rotate_cntr >= period * timer_hz)
+        if ((rotate_cntr >= num_cycles_in_period && rotate_only) || (!rotate_only && index == point_list.size()-1))
         {
             pose.theta = goal_pose.theta;
             done = true;
+            index = 0;
             rotate_only = false;
             rotate_cntr = 0;
-            ROS_INFO("Rotation goal has been reached by %s.", serial_id.c_str());
+            ROS_INFO("Target goal has been reached by %s.", serial_id.c_str());
         }
+        rotate_cntr++;
     }
 
     multi_agent_planner::agent_info msg;
@@ -151,15 +140,17 @@ bool Agent_Robot::agent_update_goal(multi_agent_planner::update_goal::Request &r
         multi_agent_planner::get_plan srv;
         srv.request.serial_id = serial_id;
         srv.request.goal_pose = goal_pose;
-        srv_get_plan.call(srv);
-        point_list = srv.response.path;
-        int segments{};
-        segments = point_list.size() - 1;
-        dt_position = (segments/period)/timer_hz;
-        yaw_start = pose.theta;
-        dt_orientation = ((goal_pose.theta - pose.theta)/period)/timer_hz;
-        agent_build_path_marker(point_list);
-        done = false;
+        bool success = srv_get_plan.call(srv);
+        if (success)
+        {
+            point_list = srv.response.path;
+            int segments{};
+            segments = point_list.size() - 1;
+            dt_position = (segments/period)/timer_hz;
+            dt_orientation = ((goal_pose.theta - pose.theta)/period)/timer_hz;
+            agent_build_path_marker(point_list);
+            done = false;
+        }
     }
     return true;
 }
@@ -174,7 +165,7 @@ void Agent_Robot::agent_build_path_marker(const vector<geometry_msgs::Point> &ve
     marker.type = visualization_msgs::Marker::LINE_STRIP;
     marker.action = visualization_msgs::Marker::ADD;
     marker.pose.orientation.w = 1.0;
-    marker.scale.x = 0.03;
+    marker.scale.x = 0.05;
     marker.color.r = agent_color[0];
     marker.color.g = agent_color[1];
     marker.color.b = agent_color[2];
@@ -207,7 +198,7 @@ void Agent_Robot::agent_build_agent_marker()
     pub_agent_marker.publish(marker);
 }
 
-void Agent_Robot::agent_update_transform(geometry_msgs::Pose2D &pose)
+void Agent_Robot::agent_update_transform(const geometry_msgs::Pose2D &pose)
 {
     static tf2_ros::TransformBroadcaster br;
     geometry_msgs::TransformStamped transform;
@@ -244,8 +235,12 @@ int main( int argc, char** argv )
         ROS_INFO(USAGE);
         exit(EXIT_FAILURE);
     }
+    geometry_msgs::Pose2D start_pose;
+    start_pose.x = atof(argv[2]);
+    start_pose.y = atof(argv[3]);
+    start_pose.theta = atof(argv[4]) * pi / 180.0;
 
-    Agent_Robot agent(&n, argv[1], atof(argv[2]), atof(argv[3]), atof(argv[4]));
+    Agent_Robot agent(&n, argv[1], start_pose);
     ros::spin();
     return 0;
 }

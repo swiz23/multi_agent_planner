@@ -81,6 +81,11 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
     geometry_msgs::Pose2D start_pose, goal_pose;
     vector<geometry_msgs::Point> path_list;
     goal_pose = req.goal_pose;
+    if (goal_pose.x < 0 || goal_pose.x > X_MAX || goal_pose.y < 0 || goal_pose.y > Y_MAX)
+    {
+        ROS_ERROR("That is an invalid goal pose.");
+        return false;
+    }
     bool found = false;
     for (auto agent : agent_start_poses)
     {
