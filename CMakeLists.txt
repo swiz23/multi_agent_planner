@@ -138,10 +138,10 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/multi_agent_planner_node.cpp)
 
-add_executable(motion_planner src/motion_planner.cpp)
-target_link_libraries(motion_planner ${catkin_LIBRARIES})
+add_executable(motion_planner_node src/motion_planner_node.cpp src/motion_planner_obj.cpp)
+target_link_libraries(motion_planner_node ${catkin_LIBRARIES})
 
-add_executable(agent_node src/agent_node.cpp)
+add_executable(agent_node src/agent_node.cpp src/agent_obj.cpp)
 target_link_libraries(agent_node ${catkin_LIBRARIES})
 
 ## Rename C++ executable without prefix

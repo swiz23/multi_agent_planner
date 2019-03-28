@@ -22,8 +22,8 @@
         args="-d $(find multi_agent_planner)/rviz/rviz_config.rviz" />
 
     <node
-        type="motion_planner"
-        name="motion_planner"
+        type="motion_planner_node"
+        name="motion_planner_node"
         pkg="multi_agent_planner"
         output="screen" />
 
