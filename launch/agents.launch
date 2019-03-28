@@ -1,5 +1,15 @@
 <launch>
 
+    <arg name="serial_id_1"                         default="agent_1" />
+    <arg name="x_1"                                 default="2" />
+    <arg name="y_1"                                 default="0" />
+    <arg name="theta_1"                             default="0" />
+
+    <arg name="serial_id_2"                         default="agent_2" />
+    <arg name="x_2"                                 default="0" />
+    <arg name="y_2"                                 default="3" />
+    <arg name="theta_2"                             default="0" />
+
     <node
         type="rviz"
         name="rviz"
@@ -10,6 +20,22 @@
         type="motion_planner"
         name="motion_planner"
         pkg="multi_agent_planner"
+        output="screen" />
+
+    <node
+        type="agent_node"
+        name="$(arg serial_id_1)_node"
+        pkg="multi_agent_planner"
+        ns="$(arg serial_id_1)"
+        args="$(arg serial_id_1) $(arg x_1) $(arg y_1) $(arg theta_1)"
+        output="screen" />
+
+    <node
+        type="agent_node"
+        name="$(arg serial_id_2)_node"
+        pkg="multi_agent_planner"
+        ns="$(arg serial_id_2)"
+        args="$(arg serial_id_2) $(arg x_2) $(arg y_2) $(arg theta_2)"
         output="screen" />
 
 </launch>

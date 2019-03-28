@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <climits>
+#include <cmath>
 #include "multi_agent_planner/get_plan.h"
 #include "multi_agent_planner/agent_info.h"
 
@@ -29,6 +30,14 @@ struct Grid_node
 
     bool operator<(Grid_node other) const
     {
+        if (total_cost == other.total_cost)
+        {
+            if (pos[0] == other.pos[0])
+            {
+                return pos[1] < other.pos[1];
+            }
+            return pos[0] < other.pos[0];
+        }
         return total_cost < other.total_cost;
     }
 };
@@ -39,15 +48,17 @@ public:
     Motion_Planner(ros::NodeHandle *node_handle, int X_max = 10, int Y_max = 10, int edge_cost = 10);
 private:
     ros::NodeHandle node;
-    ros::Publisher pub_marker;
+    ros::Publisher pub_grid_nodes_free;
+    ros::Publisher pub_grid_nodes_occupied;
     ros::Subscriber sub_agent_pose;
     ros::ServiceServer srv_get_plan;
     void create_roadmap();
     bool get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res);
-    void agent_start_pose_callback(const multi_agent_planner::agent_info &msg);
+    void agent_start_pose_callback(multi_agent_planner::agent_info msg);
     const int X_MAX;
     const int Y_MAX;
     const int edge_cost;
+    vector<geometry_msgs::Point> occupied;
     vector<Path> archived_paths;
     vector<multi_agent_planner::agent_info> agent_start_poses;
 };
@@ -55,9 +66,12 @@ private:
 Motion_Planner::Motion_Planner(ros::NodeHandle *node_handle, int X_max, int Y_max, int edge_cost)
     : node(*node_handle), X_MAX(X_max), Y_MAX(Y_max), edge_cost(edge_cost)
 {
-    pub_marker = node.advertise<visualization_msgs::Marker>("visualization_marker", 1);
+    pub_grid_nodes_free = node.advertise<visualization_msgs::Marker>("visualization/grid_nodes_free", 100);
+    pub_grid_nodes_occupied = node.advertise<visualization_msgs::Marker>("visualization/grid_nodes_occupied", 100);
     sub_agent_pose = node.subscribe("/agent_feedback", 100, &Motion_Planner::agent_start_pose_callback, this);
     srv_get_plan = node.advertiseService("/get_plan", &Motion_Planner::get_plan, this);
+    ROS_INFO("Motion planner service (/get_plan) is ready.");
+
 
     create_roadmap();
 }
@@ -98,18 +112,17 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
         {
             if (point.x == start_point.x && point.y == start_point.y && !archived_start_found)
             {
-                ROS_INFO("Found starting point in an archived path originally created for %s", path_obj.serial_id.c_str());
                 start_pntr = &point;
                 archived_start_found = true;
             }
             if (point.x == goal_point.x && point.y == goal_point.y && !archived_goal_found)
             {
-                ROS_INFO("Found goal point in an archived path originally created for %s", path_obj.serial_id.c_str());
                 goal_pntr = &point;
                 archived_goal_found = true;
             }
             if (archived_start_found && archived_goal_found)
             {
+                ROS_INFO("Using an archived path originally created for %s", path_obj.serial_id.c_str());
                 break;
             }
         }
@@ -117,6 +130,10 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
         {
             break;
         }
+        start_pntr = nullptr;
+        goal_pntr = nullptr;
+        archived_start_found = false;
+        archived_goal_found = false;
     }
 
     if (start_pntr != nullptr && goal_pntr != nullptr)
@@ -136,11 +153,10 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
             std::reverse(sub_path.begin(), sub_path.end());
             res.path = sub_path;
         }
-        ROS_INFO("Using archived path");
         return true;
     }
 
-    ROS_INFO("Using A* algorithm as complete archived path could not be found");
+    ROS_INFO("Using A* algorithm for %s as complete archived path could not be found", req.serial_id.c_str());
     // A* algorithm
     vector<Grid_node> open;
     Path final_path {};
@@ -151,7 +167,10 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
         for (size_t j{0}; j <= Y_MAX; j++)
         {
             Grid_node n = {};
-            n.stat = FREE;
+            if ((i == 2 || i == 3) && (j == 2 || j ==3))
+                n.stat = OCCUPIED;
+            else
+                n.stat = FREE;
             n.pos[0] = i;
             n.pos[1] = j;
             n.past_cost = INT_MAX;
@@ -167,8 +186,8 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
     int x_curr{}, y_curr{};
     open.push_back(grid[start[0]][start[1]]);
 
-    int x_nbr_arr[] = {0, 1, 0, -1};
-    int y_nbr_arr[] = {1, 0, -1, 0};
+    int x_nbr_arr[] = {1, 0, -1, 0};
+    int y_nbr_arr[] = {0, 1, 0, -1};
     int x_nbr{}, y_nbr{};
     Grid_node curr{};
 
@@ -193,7 +212,7 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
             }
             archived_paths.push_back(final_path);
             res.path = final_path.point_list;
-            ROS_INFO("Algorithm found a path");
+            ROS_INFO("Algorithm found a path for %s", req.serial_id.c_str());
             return true;
         }
         for (size_t i{0}; i < 4; i++)
@@ -219,13 +238,16 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
         std::sort(open.begin(), open.end());
     }
 
-    ROS_INFO("Failed");
+    ROS_WARN("Algorithm failed to find a path for %s", req.serial_id.c_str());
     return false;
 }
 
-void Motion_Planner::agent_start_pose_callback(const multi_agent_planner::agent_info &msg)
+void Motion_Planner::agent_start_pose_callback(multi_agent_planner::agent_info msg)
 {
     bool found = false;
+    msg.start_pose.x = round(msg.start_pose.x);
+    msg.start_pose.y = round(msg.start_pose.y);
+
     for (size_t i{0}; i < agent_start_poses.size(); i++)
     {
         if (agent_start_poses.at(i).serial_id == msg.serial_id)
@@ -243,30 +265,40 @@ void Motion_Planner::agent_start_pose_callback(const multi_agent_planner::agent_
 
 void Motion_Planner::create_roadmap()
 {
-    visualization_msgs::Marker marker;
-    marker.header.frame_id = "/world";
-    marker.header.stamp = ros::Time();
-    marker.ns = "sphere_list";
-    marker.id = 0;
-    marker.type = visualization_msgs::Marker::SPHERE_LIST;
-    marker.action = visualization_msgs::Marker::ADD;
-    marker.pose.orientation.w = 1.0;
-    marker.scale.x = 0.25;
-    marker.scale.y = 0.25;
-    marker.scale.z = 0.25;
-    marker.color.r = 1.0;
-    marker.color.a = 1.0;
-    marker.lifetime = ros::Duration();
+    visualization_msgs::Marker marker_free, marker_occupied;
+    marker_free.header.frame_id = "/world";
+    marker_free.header.stamp = ros::Time();
+    marker_free.ns = "grid_nodes";
+    marker_free.id = 0;
+    marker_free.type = visualization_msgs::Marker::SPHERE_LIST;
+    marker_free.action = visualization_msgs::Marker::ADD;
+    marker_free.pose.orientation.w = 1.0;
+    marker_free.scale.x = 0.15;
+    marker_free.scale.y = 0.15;
+    marker_free.scale.z = 0.15;
+    marker_free.color.r = 1.0;
+    marker_free.color.b = 1.0;
+    marker_free.color.a = 1.0;
+    marker_free.lifetime = ros::Duration();
 
-    for (size_t i {0}; i <= 10; i++)
-        for (size_t j{0}; j <= 10; j++)
+    marker_occupied = marker_free;
+    marker_occupied.color.r = 1.0;
+    marker_occupied.color.b = 0.0;
+    marker_occupied.color.g = 1.0;
+    marker_occupied.color.a = 1.0;
+
+    for (size_t i {0}; i <= X_MAX; i++)
+        for (size_t j{0}; j <= Y_MAX; j++)
         {
             geometry_msgs::Point p;
             p.x = i;
             p.y = j;
-            marker.points.push_back(p);
+            if ((i == 2 || i == 3) && (j == 2 || j ==3))
+                marker_occupied.points.push_back(p);
+            else
+                marker_free.points.push_back(p);
         }
-    while (pub_marker.getNumSubscribers() < 1)
+    while (pub_grid_nodes_free.getNumSubscribers() < 1)
      {
        if (!ros::ok())
        {
@@ -274,7 +306,8 @@ void Motion_Planner::create_roadmap()
        }
        sleep(1);
      }
-    pub_marker.publish(marker);
+    pub_grid_nodes_free.publish(marker_free);
+    pub_grid_nodes_occupied.publish(marker_occupied);
 }
 
 int main( int argc, char** argv )

@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   geometry_msgs
+  tf
   message_generation
 )
 
@@ -58,6 +59,7 @@ add_message_files(
 add_service_files(
   FILES
   get_plan.srv
+  update_goal.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -139,6 +141,8 @@ include_directories(
 add_executable(motion_planner src/motion_planner.cpp)
 target_link_libraries(motion_planner ${catkin_LIBRARIES})
 
+add_executable(agent_node src/agent_node.cpp)
+target_link_libraries(agent_node ${catkin_LIBRARIES})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
