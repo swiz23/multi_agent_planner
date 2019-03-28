@@ -1,13 +1,12 @@
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Point.h>
-#include <iostream>
-#include <vector>
+#include "multi_agent_planner/agent_info.h"
+#include "multi_agent_planner/get_plan.h"
 #include <algorithm>
 #include <climits>
+#include <vector>
 #include <cmath>
-#include "multi_agent_planner/get_plan.h"
-#include "multi_agent_planner/agent_info.h"
 
 using std::vector;
 
@@ -45,68 +44,42 @@ struct Grid_node
 class Motion_Planner
 {
 public:
-    Motion_Planner(ros::NodeHandle *node_handle, int X_max = 10, int Y_max = 10, int edge_cost = 10);
+    Motion_Planner(ros::NodeHandle *node_handle, const int X_max = 10, const int Y_max = 10, const int edge_cost = 10);
 private:
     ros::NodeHandle node;
     ros::Publisher pub_grid_nodes_free;
     ros::Publisher pub_grid_nodes_occupied;
     ros::Subscriber sub_agent_pose;
     ros::ServiceServer srv_get_plan;
-    void create_roadmap();
-    bool get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res);
-    void agent_start_pose_callback(multi_agent_planner::agent_info msg);
+
+    void planner_draw_rviz_nodes();
+    bool planner_get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res);
+    void planner_agent_pose_callback(multi_agent_planner::agent_info msg);
+    vector<geometry_msgs::Point> planner_check_archives(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point);
+    vector<geometry_msgs::Point> planner_plan_path(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point, const std::string serial_id);
+
     const int X_MAX;
     const int Y_MAX;
     const int edge_cost;
-    vector<geometry_msgs::Point> occupied;
     vector<Path> archived_paths;
     vector<multi_agent_planner::agent_info> agent_start_poses;
 };
 
-Motion_Planner::Motion_Planner(ros::NodeHandle *node_handle, int X_max, int Y_max, int edge_cost)
+Motion_Planner::Motion_Planner(ros::NodeHandle *node_handle, const int X_max, const int Y_max, const int edge_cost)
     : node(*node_handle), X_MAX(X_max), Y_MAX(Y_max), edge_cost(edge_cost)
 {
     pub_grid_nodes_free = node.advertise<visualization_msgs::Marker>("visualization/grid_nodes_free", 100);
     pub_grid_nodes_occupied = node.advertise<visualization_msgs::Marker>("visualization/grid_nodes_occupied", 100);
-    sub_agent_pose = node.subscribe("/agent_feedback", 100, &Motion_Planner::agent_start_pose_callback, this);
-    srv_get_plan = node.advertiseService("/get_plan", &Motion_Planner::get_plan, this);
+    sub_agent_pose = node.subscribe("/agent_feedback", 100, &Motion_Planner::planner_agent_pose_callback, this);
+    srv_get_plan = node.advertiseService("/get_plan", &Motion_Planner::planner_get_plan, this);
     ROS_INFO("Motion planner service (/get_plan) is ready.");
 
-
-    create_roadmap();
+    planner_draw_rviz_nodes();
 }
 
-bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res)
+vector<geometry_msgs::Point> Motion_Planner::planner_check_archives(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point)
 {
-    geometry_msgs::Pose2D start_pose, goal_pose;
-    vector<geometry_msgs::Point> path_list;
-    goal_pose = req.goal_pose;
-    if (goal_pose.x < 0 || goal_pose.x > X_MAX || goal_pose.y < 0 || goal_pose.y > Y_MAX)
-    {
-        ROS_ERROR("That is an invalid goal pose.");
-        return false;
-    }
-    bool found = false;
-    for (auto agent : agent_start_poses)
-    {
-        if (agent.serial_id == req.serial_id)
-        {
-            start_pose = agent.start_pose;
-            found = true;
-            break;
-        }
-    }
-    if (!found)
-    {
-        ROS_ERROR("%s does not yet exist - Exiting service...", req.serial_id.c_str());
-        return false;
-    }
-
-    geometry_msgs::Point start_point, goal_point;
-    start_point.x = start_pose.x;
-    start_point.y = start_pose.y;
-    goal_point.x = goal_pose.x;
-    goal_point.y = goal_pose.y;
+    vector<geometry_msgs::Point> empty_vec;
     geometry_msgs::Point *start_pntr {nullptr};
     geometry_msgs::Point *goal_pntr {nullptr};
     bool archived_start_found = false;
@@ -128,44 +101,37 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
             if (archived_start_found && archived_goal_found)
             {
                 ROS_INFO("Using an archived path originally created for %s", path_obj.serial_id.c_str());
-                break;
+                vector<geometry_msgs::Point>::iterator start_it(start_pntr);
+                vector<geometry_msgs::Point>::iterator goal_it(goal_pntr);
+                if (start_pntr < goal_pntr)
+                {
+                    goal_it++;
+                    vector<geometry_msgs::Point> sub_path(start_it, goal_it);
+                    return sub_path;
+                }
+                else
+                {
+                    start_it++;
+                    vector<geometry_msgs::Point> sub_path(goal_it, start_it);
+                    std::reverse(sub_path.begin(), sub_path.end());
+                    return sub_path;
+                }
             }
-        }
-        if (archived_start_found && archived_goal_found)
-        {
-            break;
         }
         start_pntr = nullptr;
         goal_pntr = nullptr;
         archived_start_found = false;
         archived_goal_found = false;
     }
+    return empty_vec;
+}
 
-    if (start_pntr != nullptr && goal_pntr != nullptr)
-    {
-        vector<geometry_msgs::Point>::iterator start_it(start_pntr);
-        vector<geometry_msgs::Point>::iterator goal_it(goal_pntr);
-        if (start_pntr < goal_pntr)
-        {
-            goal_it++;
-            vector<geometry_msgs::Point> sub_path(start_it, goal_it);
-            res.path = sub_path;
-        }
-        else
-        {
-            start_it++;
-            vector<geometry_msgs::Point> sub_path(goal_it, start_it);
-            std::reverse(sub_path.begin(), sub_path.end());
-            res.path = sub_path;
-        }
-        return true;
-    }
-
-    ROS_INFO("Using A* algorithm for %s as complete archived path could not be found", req.serial_id.c_str());
+vector<geometry_msgs::Point> Motion_Planner::planner_plan_path(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point, const std::string serial_id)
+{
     // A* algorithm
     vector<Grid_node> open;
     Path final_path {};
-    final_path.serial_id = req.serial_id;
+    final_path.serial_id = serial_id;
     Grid_node grid[X_MAX+1][Y_MAX+1] = {};
     for (size_t i{0}; i <= X_MAX; i++)
     {
@@ -183,17 +149,18 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
         }
     }
 
-    int start[] = {(int)start_pose.x, (int)start_pose.y};
-    int goal[] = {(int)goal_pose.x, (int)goal_pose.y};
+    int start[] = {(int)start_point.x, (int)start_point.y};
+    int goal[] = {(int)goal_point.x, (int)goal_point.y};
     grid[start[0]][start[1]].stat = START;
     grid[start[0]][start[1]].past_cost = 0;
     grid[goal[0]][goal[1]].stat = GOAL;
-    int x_curr{}, y_curr{};
     open.push_back(grid[start[0]][start[1]]);
 
     int x_nbr_arr[] = {1, 0, -1, 0};
     int y_nbr_arr[] = {0, 1, 0, -1};
     int x_nbr{}, y_nbr{};
+
+    int x_curr{}, y_curr{};
     Grid_node curr{};
 
     while (open.size() != 0)
@@ -216,9 +183,8 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
                 y_curr = final_path.point_list.at(0).y;
             }
             archived_paths.push_back(final_path);
-            res.path = final_path.point_list;
-            ROS_INFO("Algorithm found a path for %s", req.serial_id.c_str());
-            return true;
+            ROS_INFO("Algorithm found a path for %s", serial_id.c_str());
+            break;
         }
         for (size_t i{0}; i < 4; i++)
         {
@@ -242,12 +208,59 @@ bool Motion_Planner::get_plan(multi_agent_planner::get_plan::Request &req, multi
         }
         std::sort(open.begin(), open.end());
     }
+    return final_path.point_list;
+}
 
+bool Motion_Planner::planner_get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res)
+{
+    geometry_msgs::Point start_point, goal_point;
+    goal_point.x = req.goal_pose.x;
+    goal_point.y = req.goal_pose.y;
+
+    if (goal_point.x < 0 || goal_point.x > X_MAX || goal_point.y < 0 || goal_point.y > Y_MAX)
+    {
+        ROS_ERROR("That is an invalid goal pose.");
+        return false;
+    }
+
+    bool found = false;
+    for (auto agent : agent_start_poses)
+    {
+        if (agent.serial_id == req.serial_id)
+        {
+            start_point.x = agent.start_pose.x;
+            start_point.y = agent.start_pose.y;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        ROS_ERROR("%s does not yet exist - Exiting service...", req.serial_id.c_str());
+        return false;
+    }
+
+    vector<geometry_msgs::Point> path;
+    path = planner_check_archives(start_point, goal_point);
+    if (path.size() != 0)
+    {
+        res.path = path;
+        return true;
+    }
+
+    ROS_INFO("Using A* algorithm for %s as complete archived path could not be found", req.serial_id.c_str());
+    path = planner_plan_path(start_point, goal_point, req.serial_id);
+    if (path.size() != 0)
+    {
+        res.path = path;
+        return true;
+    }
     ROS_WARN("Algorithm failed to find a path for %s", req.serial_id.c_str());
     return false;
 }
 
-void Motion_Planner::agent_start_pose_callback(multi_agent_planner::agent_info msg)
+void Motion_Planner::planner_agent_pose_callback(multi_agent_planner::agent_info msg)
 {
     bool found = false;
     msg.start_pose.x = round(msg.start_pose.x);
@@ -268,7 +281,7 @@ void Motion_Planner::agent_start_pose_callback(multi_agent_planner::agent_info m
     }
 }
 
-void Motion_Planner::create_roadmap()
+void Motion_Planner::planner_draw_rviz_nodes()
 {
     visualization_msgs::Marker marker_free, marker_occupied;
     marker_free.header.frame_id = "/world";

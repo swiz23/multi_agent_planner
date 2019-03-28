@@ -7,7 +7,6 @@
 #include "multi_agent_planner/agent_info.h"
 #include "multi_agent_planner/get_plan.h"
 #include <algorithm>
-#include <iostream>
 #include <cstdlib>
 #include <vector>
 #include <ctime>
