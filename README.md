@@ -1,5 +1,5 @@
 # Multi-agent Path Planner
-Created by Solomon Wiznitzer
+Created by Solomon Wiznitzer as a solution for a coding challenge.
 ## Description
 **Objective:** To perform motion planning for at least 2 robots (where each robot can only move along the edges between nodes) and display the planned paths in Rviz.
 
@@ -22,4 +22,11 @@ To update the pose for a robot, open up another command terminal and type...
 ```
 rosservice call /agent_x/update_goal
 ```
-and hit tab a couple times ('x' is a placeholder for '1', '2', '3', etc... based on which agent you would like to set the goal pose for). A 'zeroed out' `geometry_msgs::Pose2D` ROS message should appear. Fill it in with whatever pose you so choose as long as the 'x' and 'y' values are integers, and press Enter.
+and hit tab a couple times ('x' is a placeholder for '1', '2', '3', etc... based on which agent you would like to set the goal pose for). A 'zeroed out' `geometry_msgs::Pose2D` ROS message should appear. Fill it in with whatever pose you so choose as long as the 'x' and 'y' values are integers, and press Enter. If an archived path cannot be found in the Planner node, a message will appear in the terminal saying...
+```
+Using A* algorithm for agent_x as complete archived path could not be found
+Algorithm found a path for agent_x
+```
+This just means that the A\* algorithm implemented in the Planner node was successful in finding a minimum distance path. Although A\* is overkill for this particular challenge as there are no obstacles and the cost to go from one node to another is uniform, I still implemented it just for fun. Anyway, at this point, the cylinder representing the agent will begin to move as shown below.
+![test_case_gif](media/test_cases.gif)
+The above gif shows the two robots move after making two consecutive calls to the `update_goal` rosservice.
