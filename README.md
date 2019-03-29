@@ -3,7 +3,7 @@ Created by Solomon Wiznitzer as a solution for a coding challenge.
 ## Description
 **Objective:** To perform motion planning for at least 2 robots (where each robot can only move along the edges between nodes) and display the planned paths in Rviz.
 
-**How It Works:** There were four parts to this project.
+**Overview:** There were four parts to this project.
 - *Creating a Roadmap* - This part included configuring Rviz to display a 10x10 grid with (0,0) being at the bottom left corner and (10,10) being at the top right corner. It also entailed drawing a marker representation of all the nodes.
 - *Coding the Planner node* - As its name suggests, this involved implementing an algorithm to determine the minimum distance path from a robot's initial starting position to a user-specified goal position. Additionally, the node was responsible for archiving the planned paths so that they could potentially be reused for future robots.
 - *Coding the Agent node* - The third part required building a node that would take in a user-specified goal position via a ROS service, request the planned path from the Planner node, and then publish the robot and path markers in Rviz.
@@ -50,5 +50,23 @@ where in this case, `agent_x` represents the robot that had traversed that path 
  - The system can work with obstacles in the grid as well.
  - Both nodes were implemented as objects in code. As a result, it is a simple matter of changing one parameter in the constructor to make the grid larger or smaller, change the `edge_cost` value, or change the speed it takes for a robot to traverse the path.
 
- Below is a GIF of four robots moving in the grid. The yellow nodes represent obstacles in the world. A video of this can be found in the `media` directory.
+ Below is a GIF of four robots moving in the grid. The yellow nodes represent obstacles in the world. A video of this can be found in the `media` directory. Note how the brown agent is also rotating (in this case, 180 degrees).
+
  ![four_robots](media/four_agents.gif)
+
+ ### ROS Node Info
+
+ - **motion_planner_node:** Responsible for calculating the minimum distance path
+     - *Published Topic:* /agent_x/visualization/grid_nodes_free --- message type: Marker
+     - *Published Topic:* /agent_x/visualization/grid_nodes_occupied --- message type: Marker
+     - *Subscribed Topic:* /agent_feedback --- message type: [agent_info](msg/agent_info.msg)
+     - *Service:* Server - /get_plan --- service type: [get_plan](srv/get_plan.srv)
+     - *Files:* [motioin_planner_node.cpp](src/motion_planner_node.cpp), [motion_planner_obj.cpp](src/motion_planner_obj.cpp), [motion_planner_obj.h](motion_planner_obj.h)
+
+ - **agent_node:** Responsible for displaying the path and publishing the pose of the agent
+     - *Published Topic:* /agent_x/visualization/base_link -- message type: Marker
+     - *Published Topic:* /agent_x/visualization/path --- message type: Marker
+     - *Published Topic:* /agent_feedback --- message type: [agent_info](msg/agent_info.msg)
+     - *Service:* Client - /get_plan --- service type: [get_plan](srv/get_plan.srv)
+     - *Service* Server - /agent_x/update_goal -- service type: [update_goal](srv/update_goal.srv)
+     - *Files:* [agent_node.cpp](src/agent_node.cpp), [agent_obj.cpp](src/agent_obj.cpp), [agent_obj.h](agent_obj.h)
