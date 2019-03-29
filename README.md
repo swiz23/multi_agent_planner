@@ -48,9 +48,9 @@ where in this case, `agent_x` represents the robot that had traversed that path 
  - Not just reusing an archived path if the start and goal poses exactly match but also if the requested path can be found within the archived path
  - The system is scalable; there is no reason more agents cannot be inserted. All that would need to be done is to add another `agent_node` to the launch file and another Marker display in Rviz.
  - The system can work with obstacles in the grid as well.
- - Both nodes were implemented as objects in code. As a result, it is a simple matter of changing one parameter in the constructor to make the grid larger or smaller, change the `edge_cost` value, or change the speed it takes for a robot to traverse the path.
+ - Both nodes were implemented as objects in code. As a result, it is a simple matter of changing a parameter or two in the constructor to make the grid larger or smaller, change the `edge_cost` value, or change the speed it takes for a robot to traverse the path.
 
- Below is a GIF of four robots moving in the grid. The yellow nodes represent obstacles in the world. A video of this can be found in the `media` directory. Note how the brown agent is also rotating (in this case, 180 degrees).
+ Just for fun, I decided to run the system with four agents. Below is a GIF showing the result. The yellow nodes represent obstacles in the world. A video of this can be found in the `media` directory. Note how the brown agent is also rotating (in this case, 180 degrees).
 
  ![four_robots](media/four_agents.gif)
 
@@ -70,3 +70,7 @@ where in this case, `agent_x` represents the robot that had traversed that path 
      - *Service:* Client - /get_plan --- service type: [get_plan](srv/get_plan.srv)
      - *Service* Server - /agent_x/update_goal -- service type: [update_goal](srv/update_goal.srv)
      - *Files:* [agent_node.cpp](src/agent_node.cpp), [agent_obj.cpp](src/agent_obj.cpp), [agent_obj.h](agent_obj.h)
+
+### Future Work
+
+Although this package contains a good amount of features, there are a couple things that can make it even better. For example, right now, it is not so easy to add obstacles into the world. However, adding another service in the *motion_planner_node* to take in two integers describing a node position and which would subsequently modify the grid could be a solution. Secondly, a unit test could be created to make sure the algorithm works as expected for various starting and goal poses. 
