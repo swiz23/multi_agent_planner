@@ -24,7 +24,7 @@ Agent_Robot::Agent_Robot(ros::NodeHandle *node_handle, std::string serial_id, ge
     srv_update_goal = node.advertiseService("update_goal", &Agent_Robot::agent_update_goal, this);
     srv_get_plan = node.serviceClient<multi_agent_planner::get_plan>("/get_plan");
     tmr_odom = node.createTimer(ros::Duration(1/timer_hz), &Agent_Robot::agent_update_pose, this);
-    ROS_INFO("Ready to update goal position for %s.", serial_id.c_str());
+    ROS_INFO("Ready to update goal pose for %s.", serial_id.c_str());
 }
 
 /// @brief Creates and publishes a LINE_STRIP marker representing the planned path

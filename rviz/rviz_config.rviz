@@ -64,7 +64,7 @@ Visualization Manager:
           Marker Topic: /visualization/grid_nodes_occupied
           Name: Occupied
           Namespaces:
-            {}
+            grid_nodes: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -84,7 +84,7 @@ Visualization Manager:
           Marker Topic: /agent_1/visuallization/path
           Name: Path_Marker
           Namespaces:
-            {}
+            agent_1: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -104,7 +104,7 @@ Visualization Manager:
           Marker Topic: /agent_2/visuallization/path
           Name: Path_Marker
           Namespaces:
-            {}
+            agent_2: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -118,6 +118,10 @@ Visualization Manager:
           Value: true
         agent_2/base_link:
           Value: true
+        agent_3/base_link:
+          Value: true
+        agent_4/base_link:
+          Value: true
         world:
           Value: true
       Marker Scale: 1
@@ -130,6 +134,10 @@ Visualization Manager:
           agent_1/base_link:
             {}
           agent_2/base_link:
+            {}
+          agent_3/base_link:
+            {}
+          agent_4/base_link:
             {}
       Update Interval: 0
       Value: true

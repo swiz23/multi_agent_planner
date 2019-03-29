@@ -14,7 +14,12 @@
     <!-- <arg name="serial_id_3"                         default="agent_3" />
     <arg name="x_3"                                 default="7" />
     <arg name="y_3"                                 default="8" />
-    <arg name="theta_3"                             default="45" /> -->
+    <arg name="theta_3"                             default="45" />
+
+    <arg name="serial_id_4"                         default="agent_4" />
+    <arg name="x_4"                                 default="8" />
+    <arg name="y_4"                                 default="3" />
+    <arg name="theta_4"                             default="45" /> -->
 
     <node
         type="rviz"
@@ -54,6 +59,15 @@
         pkg="multi_agent_planner"
         ns="$(arg serial_id_3)"
         args="$(arg serial_id_3) $(arg x_3) $(arg y_3) $(arg theta_3)"
+        output="screen" /> -->
+
+    <!-- Agent 4 Node (for fun)-->
+    <!-- <node
+        type="agent_node"
+        name="$(arg serial_id_4)_node"
+        pkg="multi_agent_planner"
+        ns="$(arg serial_id_4)"
+        args="$(arg serial_id_4) $(arg x_4) $(arg y_4) $(arg theta_4)"
         output="screen" /> -->
 
 </launch>
