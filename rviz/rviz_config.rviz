@@ -5,6 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Nodes1/Occupied1
+        - /Agent_41/Agent_Marker1
+        - /Agent_41/Path_Marker1
       Splitter Ratio: 0.5
     Tree Height: 775
   - Class: rviz/Selection
@@ -109,6 +111,46 @@ Visualization Manager:
           Value: true
       Enabled: true
       Name: Agent_2
+    - Class: rviz/Group
+      Displays:
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /agent_3/visualization/base_link
+          Name: Agent_Marker
+          Namespaces:
+            {}
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /agent_3/visuallization/path
+          Name: Path_Marker
+          Namespaces:
+            {}
+          Queue Size: 100
+          Value: true
+      Enabled: false
+      Name: Agent_3
+    - Class: rviz/Group
+      Displays:
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /agent_4/visualization/base_link
+          Name: Agent_Marker
+          Namespaces:
+            {}
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /agent_4/visuallization/path
+          Name: Path_Marker
+          Namespaces:
+            {}
+          Queue Size: 100
+          Value: true
+      Enabled: false
+      Name: Agent_4
     - Class: rviz/TF
       Enabled: true
       Frame Timeout: 15

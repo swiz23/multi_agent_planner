@@ -17,6 +17,7 @@ using std::vector;
 struct Path
 {
     std::string serial_id;
+    double time_of_plan;
     vector<geometry_msgs::Point> point_list;
 };
 
@@ -54,7 +55,7 @@ class Motion_Planner
 {
 public:
     /// @brief Constructor for the Motion Planner
-    explicit Motion_Planner(ros::NodeHandle *node_handle, const int X_max = 10, const int Y_max = 10, const int edge_cost = 10);
+    explicit Motion_Planner(ros::NodeHandle *node_handle, const int X_max = 10, const int Y_max = 10, const int edge_cost = 10, const int period = 10);
 private:
     ros::NodeHandle node;                                           // ROS node handler
     ros::Publisher pub_grid_nodes_free;                             // Publishes markers for each node that the agent can pass through
@@ -65,7 +66,8 @@ private:
     const int X_MAX;                                                // Width of the grid - defaults to 10
     const int Y_MAX;                                                // Length of the grid - defaults to 10
     const int edge_cost;                                            // Cost to travel along all edges - defaults to 10
-    vector<Path> archived_paths;                                    // Holds all the previously planned paths
+    const int period;                                               // Time in seconds for the agent to traverse the whole path - defaults to 10 seconds
+    vector<Path> archived_paths;                                    // Holds the most up-to-date path of each agent
     vector<multi_agent_planner::agent_info> agent_start_poses;      // Holds the most up-to-date pose of each agent
 
     /// @brief Returns a vector containing the planned path for an agent - calculated using the A* algorithm
@@ -73,13 +75,12 @@ private:
     /// @param goal_point - where the algorithm should stop exploring
     /// @param serial_id - name of the agent
     /// If no path is found, an empty vector is returned
-    vector<geometry_msgs::Point> planner_plan_path(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point, const std::string serial_id);
+    struct Path planner_plan_path(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point, const std::string serial_id, const vector<geometry_msgs::Point> collisions);
 
-    /// @brief Returns a vector containing part or all of a previously planned path
-    /// @param start_point - where the algorithm should begin exploring
-    /// @param goal_point - where the algorithm should stop exploring
-    /// If no path is found, an empty vector is returned
-    vector<geometry_msgs::Point> planner_check_archives(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point);
+    /// @brief Returns node location of collision if there is one
+    /// If there is no collision, then a point with a value of [X_MAX+1, Y_MAX+1] is returned
+    /// @param p - freshly planned path to be checked against the other plans in the archives
+    geometry_msgs::Point planner_check_collision(const struct Path current_path);
 
     /// @brief Service called to plan the path
     /// @param req - Service request containing the serial_id and goal_pose for an agent

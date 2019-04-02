@@ -1,8 +1,8 @@
 #include "motion_planner_obj.h"
 
 // @brief Constructor for the Motion Planner
-Motion_Planner::Motion_Planner(ros::NodeHandle *node_handle, const int X_max, const int Y_max, const int edge_cost)
-    : node(*node_handle), X_MAX(X_max), Y_MAX(Y_max), edge_cost(edge_cost)
+Motion_Planner::Motion_Planner(ros::NodeHandle *node_handle, const int X_max, const int Y_max, const int edge_cost, const int period)
+    : node(*node_handle), X_MAX(X_max), Y_MAX(Y_max), edge_cost(edge_cost), period(period)
 {
     // Initialization of Publishers, Subscriber, and Service
     pub_grid_nodes_free = node.advertise<visualization_msgs::Marker>("visualization/grid_nodes_free", 100);
@@ -19,8 +19,9 @@ Motion_Planner::Motion_Planner(ros::NodeHandle *node_handle, const int X_max, co
 /// @param start_point - where the algorithm should begin exploring
 /// @param goal_point - where the algorithm should stop exploring
 /// @param serial_id - name of the agent
+/// @param collisions - vector of nodes that should be treated as obstacles
 /// If no path is found, an empty vector is returned
-vector<geometry_msgs::Point> Motion_Planner::planner_plan_path(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point, const std::string serial_id)
+struct Path Motion_Planner::planner_plan_path(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point, const std::string serial_id, const vector<geometry_msgs::Point> collisions)
 {
     // Create empty vector 'open' where the A* algorithm will place nodes in the frontier
     vector<Grid_node> open;
@@ -47,6 +48,11 @@ vector<geometry_msgs::Point> Motion_Planner::planner_plan_path(const geometry_ms
             n.past_cost = INT_MAX;
             grid[i][j] = n;
         }
+    }
+
+    for (auto &p : collisions)
+    {
+        grid[(int)p.x][(int)p.y].stat = OCCUPIED;
     }
 
     int start[] = {(int)start_point.x, (int)start_point.y};
@@ -94,8 +100,7 @@ vector<geometry_msgs::Point> Motion_Planner::planner_plan_path(const geometry_ms
                 x_curr = final_path.point_list.at(0).x;
                 y_curr = final_path.point_list.at(0).y;
             }
-            archived_paths.push_back(final_path);
-            ROS_INFO("Algorithm found a path for %s", serial_id.c_str());
+            final_path.time_of_plan = ros::Time::now().toSec();
             break;
         }
         // Otherwise, look at the neighboring nodes...
@@ -129,81 +134,99 @@ vector<geometry_msgs::Point> Motion_Planner::planner_plan_path(const geometry_ms
         // described in the 'Node' structure
         std::sort(open.begin(), open.end());
     }
-    return final_path.point_list;
+    return final_path;
 }
 
-/// @brief Returns a vector containing part or all of a previously planned path
-/// @param start_point - where the algorithm should begin exploring
-/// @param goal_point - where the algorithm should stop exploring
-/// If no path is found, an empty vector is returned
-vector<geometry_msgs::Point> Motion_Planner::planner_check_archives(const geometry_msgs::Point start_point, const geometry_msgs::Point goal_point)
+/// @brief Returns location of agent collision if there is one
+/// If there is no collision, then a point with a value of [X_MAX+1, Y_MAX+1] is returned
+/// @param current_path - freshly planned path to be checked against the other plans in the archives
+geometry_msgs::Point Motion_Planner::planner_check_collision(const struct Path current_path)
 {
-    // Empty vector to be returned if a path can not be found
-    vector<geometry_msgs::Point> empty_vec;
+    geometry_msgs::Point collision_point;
+    collision_point.x = X_MAX + 1;
+    collision_point.y = Y_MAX + 1;
 
-    // 'start_pntr' will be assigned the address of the starting point if it is found in a previous path.
-    // 'goal_pntr' will be assigned the address of the goal point if it is found in a previous path.
-    geometry_msgs::Point *start_pntr {nullptr};
-    geometry_msgs::Point *goal_pntr {nullptr};
-    bool archived_start_found = false;
-    bool archived_goal_found = false;
-
-    // for each archived path...
+    // Only the most recent path for each agent is saved in the archives. This is
+    // all that is necessary to perform proper collision detection. So, for each
+    // agent that has a stored path...
     for (auto &path_obj : archived_paths)
     {
-        // parse through each point in that path
-        for (auto &point : path_obj.point_list)
+        // make sure you are not comparing the agent to itself!
+        if (path_obj.serial_id != current_path.serial_id)
         {
-            // check to see if the start_point and archived point match. if they do,
-            // assign the start_pntr to its address.
-            if (point.x == start_point.x && point.y == start_point.y && !archived_start_found)
+            // if more than 'period' seconds have past, that means the agent that
+            // followed this path originally is already at the goal node.
+            if ((current_path.time_of_plan - path_obj.time_of_plan) >= period)
             {
-                start_pntr = &point;
-                archived_start_found = true;
-            }
-            // check to see if the goal_point and archived point match. if they do,
-            // assign the goal_pntr to its address.
-            if (point.x == goal_point.x && point.y == goal_point.y && !archived_goal_found)
-            {
-                goal_pntr = &point;
-                archived_goal_found = true;
-            }
-
-            // if both points were found in the same path...
-            if (archived_start_found && archived_goal_found)
-            {
-                ROS_INFO("Using an archived path originally created for %s", path_obj.serial_id.c_str());
-                vector<geometry_msgs::Point>::iterator start_it(start_pntr);
-                vector<geometry_msgs::Point>::iterator goal_it(goal_pntr);
-
-                // if the 'start_pntr' has an address that is before 'goal_pntr' in memory...
-                if (start_pntr < goal_pntr)
+                // So all we need to do is to check to see if the goal node in the
+                // archived path happens to be a point on the freshly planned path
+                for (auto &current_path_point : current_path.point_list)
                 {
-                    // increment 'goal_it' to point at one past the goal point in memory
-                    // so that the goal point is not cut out and create the sub array.
-                    goal_it++;
-                    vector<geometry_msgs::Point> sub_path(start_it, goal_it);
-                    return sub_path;
+                    // if that's the case, then we should treat this node as an obstacle
+                    if (path_obj.point_list.back().x == current_path_point.x && path_obj.point_list.back().y == current_path_point.y)
+                    {
+                        return current_path_point;
+                    }
                 }
-                // however, if the 'start_pntr' has an address that occurs after
-                // the one in 'goal_pntr' in memory, we must flip the order.
-                else
+            }
+            // however, if fewer than 'period' seconds have passed, we need
+            // to test to see if the current agent will collide with the previous
+            // agent somewhere along the path. To do this, we need to find where
+            // every point in the currently planned path intersects with a point in
+            // an archived path.
+            else
+            {
+                // for each archived path...
+                for (size_t i{0}; i < path_obj.point_list.size(); i++)
                 {
-                    start_it++;
-                    vector<geometry_msgs::Point> sub_path(goal_it, start_it);
-                    std::reverse(sub_path.begin(), sub_path.end());
-                    return sub_path;
+                    // for each point in the current path...
+                    for (size_t j{0}; j < current_path.point_list.size(); j++)
+                    {
+                        // if a point in the currently planned path intersects with one in an archived path...
+                        if (path_obj.point_list.at(i).x == current_path.point_list.at(j).x && path_obj.point_list.at(i).y == current_path.point_list.at(j).y)
+                        {
+                            // Now, we need to see if the intersection is a problem. It could very well be that the previous agent will have already passed the
+                            // intersection before this agent will cross it - meaning that the planned path would be fine to use.
+
+                            // first, let's figure out how much time has passed since the previous agent started traversing its own path.
+                            double time_offset_archived_path = current_path.time_of_plan - path_obj.time_of_plan;
+
+                            // second, determine the number of edges in the currently planned path
+                            double num_segs_current_path = current_path.point_list.size() - 1;
+
+                            // third, figure out how long it takes (in seconds) for the current agent to traverse one edge assuming it should take 'period' seconds to complete the whole path
+                            double sec_per_seg_current_path = period/num_segs_current_path;
+
+                            // repeat these steps for the agent in the archived path
+                            double num_segs_archived_path = path_obj.point_list.size() - 1;
+                            double sec_per_seg_archived_path = period/num_segs_archived_path;
+
+                            // since each agent is 1 meter in diameter, it will take the time necessary to travel two edges for the agent to be out of the 'danger' zone. So, calculate at what time
+                            // the current agent will enter the 'danger' zone and when it will be safely across. Time '0' is when the current agent begins to move
+                            double time_before_collision_current_path = (j - 1) * sec_per_seg_current_path;
+                            double time_after_collision_current_path = (j + 1) * sec_per_seg_current_path;
+
+                            // now calculate when the 'past' agent will arrive at this intersection. Make sure to subtract the difference in time between when the path was planned for the 'past'
+                            // agent and for the current agent.
+                            double time_before_collision_archived_path = (i - 1) * sec_per_seg_archived_path - time_offset_archived_path;
+                            double time_after_collision_archived_path = (i + 1) * sec_per_seg_archived_path - time_offset_archived_path;
+
+                            // Check for the inverse of the following...
+                            // if the current agent passes through the intersection before the 'past' agent starts to cross OR
+                            // if the current agent passes through the intersection after the 'past' agent has already crossed
+                            if (!(time_after_collision_current_path <= time_before_collision_archived_path || time_before_collision_current_path >= time_after_collision_archived_path))
+                            {
+                                // then there is a collision, and we must treat this point as an obstacle.
+                                return current_path.point_list.at(j);
+                            }
+                        }
+                    }
                 }
             }
         }
-        // if none or only one of the start/goal points were found in an archived path,
-        // reassign the pointers to point at 0 so that they are ready for the next archived path.
-        start_pntr = nullptr;
-        goal_pntr = nullptr;
-        archived_start_found = false;
-        archived_goal_found = false;
     }
-    return empty_vec;
+
+    return collision_point;
 }
 
 /// @brief Service called to plan the path
@@ -211,9 +234,10 @@ vector<geometry_msgs::Point> Motion_Planner::planner_check_archives(const geomet
 /// @param res - Serivce response containing the list of points represting the planned path
 bool Motion_Planner::planner_get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res)
 {
+    // round the goal input to the nearest integer just in case the user entered a 'non-integer' number
     geometry_msgs::Point start_point, goal_point;
-    goal_point.x = req.goal_pose.x;
-    goal_point.y = req.goal_pose.y;
+    goal_point.x = round(req.goal_pose.x);
+    goal_point.y = round(req.goal_pose.y);
 
     // check the goal_point to make sure the user did not enter an invalid pose
     if (goal_point.x < 0 || goal_point.x > X_MAX || goal_point.y < 0 || goal_point.y > Y_MAX)
@@ -222,9 +246,22 @@ bool Motion_Planner::planner_get_plan(multi_agent_planner::get_plan::Request &re
         return false;
     }
 
+    // check to make sure that a different agent is not already occupying the requested goal point
+    for (auto &path_obj : archived_paths)
+    {
+        if (path_obj.serial_id != req.serial_id)
+        {
+            if (path_obj.point_list.back().x == goal_point.x && path_obj.point_list.back().y == goal_point.y)
+            {
+                ROS_ERROR("You entered a goal point that will be or currently is occupied by %s. Please choose a different goal.", path_obj.serial_id.c_str());
+                return false;
+            }
+        }
+    }
+
     // get the most up-to-date pose of the agent
     bool found = false;
-    for (auto agent : agent_start_poses)
+    for (auto &agent : agent_start_poses)
     {
         if (agent.serial_id == req.serial_id)
         {
@@ -242,25 +279,48 @@ bool Motion_Planner::planner_get_plan(multi_agent_planner::get_plan::Request &re
         return false;
     }
 
-    // check archived paths and return a path if one is found
-    vector<geometry_msgs::Point> path;
-    path = planner_check_archives(start_point, goal_point);
-    if (path.size() != 0)
-    {
-        res.path = path;
-        return true;
-    }
+    vector<geometry_msgs::Point> collisions;
+    geometry_msgs::Point collision_location;
+    Path current_path {};
 
-    // If an archived path is not found, compute the path with the A* algorithm
-    ROS_INFO("Using A* algorithm for %s as complete archived path could not be found", req.serial_id.c_str());
-    path = planner_plan_path(start_point, goal_point, req.serial_id);
-    if (path.size() != 0)
+    ROS_INFO("Using A* algorithm for %s.", req.serial_id.c_str());
+
+    do
     {
-        res.path = path;
+        // compute the path with the A* algorithm
+        current_path = planner_plan_path(start_point, goal_point, req.serial_id, collisions);
+        // check to see if there is a potential collision. if so, return the location of it
+        collision_location = planner_check_collision(current_path);
+        // add the location to a vector. as collision locations increase, this vector will increase
+        collisions.push_back(collision_location);
+        // keep iterating until a collision-free path is found
+    } while(collision_location.x != (X_MAX + 1) && collision_location.y != (Y_MAX + 1) && current_path.point_list.size() != 0);
+
+    // make sure that the algorithm actually found a path
+    if (current_path.point_list.size() != 0)
+    {
+        ROS_INFO("Algorithm found a path for %s.", req.serial_id.c_str());
+        res.path = current_path.point_list;
+        found = false;
+        // update the path in the archives for this agent or tack it on to the end
+        // if this is the agent's first path.
+        for (auto &path_obj : archived_paths)
+        {
+            if (path_obj.serial_id == current_path.serial_id)
+            {
+                path_obj.time_of_plan = current_path.time_of_plan;
+                path_obj.point_list = current_path.point_list;
+                found = true;
+            }
+        }
+        if (!found)
+        {
+            archived_paths.push_back(current_path);
+        }
         return true;
     }
     // The algorithm should not fail unless there are OCCUPIED nodes blocking all routes.
-    ROS_WARN("Algorithm failed to find a path for %s", req.serial_id.c_str());
+    ROS_WARN("Algorithm failed to find a path for %s.", req.serial_id.c_str());
     return false;
 }
 
