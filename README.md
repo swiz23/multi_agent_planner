@@ -48,6 +48,10 @@ The following is a list of additional features.
 
  ![four_robots](media/four_agents.gif)
 
+ Here is another GIF that also shows the system working with four agents. However, in this case, I purposely generated goal poses that could cause collisions if not handled properly. This can really be seen in the case of the green and gray agents. Without the collision detection feature, the paths generated for both of these agents would have led the agents to go as far left as possible before making them go down towards the bottom of the grid (since my implementation of the A* algorithm breaks ties by choosing the node with the lower 'x' value).
+
+ ![four_robots_collisions](media/four_agents_collisions.gif)
+
  ### ROS Node Info
 
  - **motion_planner_node:** Responsible for calculating the minimum distance path

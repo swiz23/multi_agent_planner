@@ -37,10 +37,10 @@ struct Path Motion_Planner::planner_plan_path(const geometry_msgs::Point start_p
         {
             Grid_node n = {};
             // Optional - include an OCCUPIED region
-            if ((i == 2 || i == 3) && (j == 2 || j == 3 || j == 4 || j == 5 || j == 6))
-                n.stat = OCCUPIED;
-            else
-                n.stat = FREE;
+            // if ((i == 2 || i == 3) && (j == 2 || j == 3 || j == 4 || j == 5 || j == 6))
+            //     n.stat = OCCUPIED;
+            // else
+            n.stat = FREE;
             n.pos[0] = i;
             n.pos[1] = j;
             // Initialize the past_cost of all nodes except the first to a high value.
@@ -50,6 +50,7 @@ struct Path Motion_Planner::planner_plan_path(const geometry_msgs::Point start_p
         }
     }
 
+    // change status of nodes to OCCUPIED based on points in the 'collisions' vector
     for (auto &p : collisions)
     {
         grid[(int)p.x][(int)p.y].stat = OCCUPIED;
@@ -394,10 +395,10 @@ void Motion_Planner::planner_draw_rviz_nodes()
             p.x = i;
             p.y = j;
             // optional - draw occupied nodes as a different color
-            if ((i == 2 || i == 3) && (j == 2 || j == 3 || j == 4 || j == 5 || j == 6))
-                marker_occupied.points.push_back(p);
-            else
-                marker_free.points.push_back(p);
+            // if ((i == 2 || i == 3) && (j == 2 || j == 3 || j == 4 || j == 5 || j == 6))
+            //     marker_occupied.points.push_back(p);
+            // else
+            marker_free.points.push_back(p);
         }
 
     // don't publish the marker until Rviz is subscribed to it
