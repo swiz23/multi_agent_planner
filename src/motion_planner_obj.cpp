@@ -37,10 +37,10 @@ struct Path Motion_Planner::planner_plan_path(const geometry_msgs::Point start_p
         {
             Grid_node n = {};
             // Optional - include an OCCUPIED region
-            // if ((i == 2 || i == 3) && (j == 2 || j == 3 || j == 4 || j == 5 || j == 6))
-            //     n.stat = OCCUPIED;
-            // else
-            n.stat = FREE;
+            if ((i == 2 || i == 3) && (j == 2 || j == 3 || j == 4 || j == 5 || j == 6))
+                n.stat = OCCUPIED;
+            else
+                n.stat = FREE;
             n.pos[0] = i;
             n.pos[1] = j;
             // Initialize the past_cost of all nodes except the first to a high value.
@@ -303,7 +303,9 @@ bool Motion_Planner::planner_get_plan(multi_agent_planner::get_plan::Request &re
         res.path = current_path.point_list;
         found = false;
         // update the path in the archives for this agent or tack it on to the end
-        // if this is the agent's first path.
+        // if this is the agent's first path. Note that technically, an agent's first
+        // 'path' is defined as its starting position. So, we should never have to
+        // 'push_back' a new path. I just included it for completeness.
         for (auto &path_obj : archived_paths)
         {
             if (path_obj.serial_id == current_path.serial_id)
@@ -344,10 +346,19 @@ void Motion_Planner::planner_agent_pose_callback(multi_agent_planner::agent_info
             break;
         }
     }
-    // if the agent is not yet in databse, add it.
+    // if the agent is not yet in databse, add it. Also, initialize a Path struct
+    // and add the agent with its starting point into the archives.
     if (!found)
     {
         agent_start_poses.push_back(msg);
+        Path new_agent_path {};
+        geometry_msgs::Point new_point;
+        new_agent_path.serial_id = msg.serial_id;
+        new_agent_path.time_of_plan = ros::Time::now().toSec();
+        new_point.x = msg.start_pose.x;
+        new_point.y = msg.start_pose.y;
+        new_agent_path.point_list.push_back(new_point);
+        archived_paths.push_back(new_agent_path);
     }
 }
 
@@ -383,10 +394,10 @@ void Motion_Planner::planner_draw_rviz_nodes()
             p.x = i;
             p.y = j;
             // optional - draw occupied nodes as a different color
-            // if ((i == 2 || i == 3) && (j == 2 || j == 3 || j == 4 || j == 5 || j == 6))
-            //     marker_occupied.points.push_back(p);
-            // else
-            marker_free.points.push_back(p);
+            if ((i == 2 || i == 3) && (j == 2 || j == 3 || j == 4 || j == 5 || j == 6))
+                marker_occupied.points.push_back(p);
+            else
+                marker_free.points.push_back(p);
         }
 
     // don't publish the marker until Rviz is subscribed to it
