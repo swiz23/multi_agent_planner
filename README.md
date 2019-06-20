@@ -43,7 +43,7 @@ The following is a list of additional features.
  - Designing for scalability; there is no reason more agents cannot be inserted. All that would need to be done is to add another `agent_node` to the launch file and another Marker display in Rviz.
  - The system can work with obstacles in the grid as well.
  - Both nodes were implemented as objects in code. As a result, it is a simple matter of changing a parameter or two in the constructor to make the grid larger or smaller, change the `edge_cost` value, or change the speed it takes for a robot to traverse the path.
- - Testing the system via unit tests (using rostest/gtest). The unit tests call the `update_goal` rosservice automatically with pre-configured goal poses. Besides for animating the agents in Rviz, it also checks to make sure that the planned paths are correct. To run the tests, just type `rostest multi_agent_planner agents.test` in the command terminal.
+ - Testing the system via unit tests (using rostest/gtest). The unit tests call the `update_goal` rosservice automatically with pre-configured goal poses. Besides for animating the agents in Rviz, it also checks to make sure that the planned paths are correct. To run the tests, just type `rostest multi_agent_planner agents.test` in the command terminal. If running them for the first time, make sure to build the test file beforehand by typing `catkin_make run_tests_multi_agent_planner` in the terminal.
 
  Just for fun, I decided to run the system with four agents. Below is a GIF showing the result. The yellow nodes represent obstacles in the world. A video of this can be found in the `media` directory. Note how the brown agent is also rotating (in this case, 180 degrees).
 
@@ -60,7 +60,7 @@ The following is a list of additional features.
      - *Published Topic:* /agent_x/visualization/grid_nodes_occupied --- message type: Marker
      - *Subscribed Topic:* /agent_feedback --- message type: [agent_info](msg/agent_info.msg)
      - *Service:* Server - /get_plan --- service type: [get_plan](srv/get_plan.srv)
-     - *Files:* [motioin_planner_node.cpp](src/motion_planner_node.cpp), [motion_planner_obj.cpp](src/motion_planner_obj.cpp), [motion_planner_obj.h](motion_planner_obj.h)
+     - *Files:* [motion_planner_node.cpp](src/motion_planner_node.cpp), [motion_planner_obj.cpp](src/motion_planner_obj.cpp), [motion_planner_obj.h](motion_planner_obj.h)
 
  - **agent_node:** Responsible for displaying the path and publishing the pose of the agent
      - *Published Topic:* /agent_x/visualization/base_link -- message type: Marker
