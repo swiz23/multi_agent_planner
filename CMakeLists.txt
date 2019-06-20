@@ -140,9 +140,11 @@ include_directories(
 
 add_executable(motion_planner_node src/motion_planner_node.cpp src/motion_planner_obj.cpp)
 target_link_libraries(motion_planner_node ${catkin_LIBRARIES})
+add_dependencies(motion_planner_node multi_agent_planner_generate_messages_cpp)
 
 add_executable(agent_node src/agent_node.cpp src/agent_obj.cpp)
 target_link_libraries(agent_node ${catkin_LIBRARIES})
+add_dependencies(agent_node multi_agent_planner_generate_messages_cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -197,6 +199,13 @@ target_link_libraries(agent_node ${catkin_LIBRARIES})
 #############
 ## Testing ##
 #############
+
+if(CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  add_rostest_gtest(tests_multi_agent_planner test/agents.test src/test/tests_multi_agent_planner.cpp)
+  target_link_libraries(tests_multi_agent_planner ${catkin_LIBRARIES})
+  add_dependencies(tests_multi_agent_planner multi_agent_planner_generate_messages_cpp)
+endif()
 
 ## Add gtest based cpp test target and link libraries
 # catkin_add_gtest(${PROJECT_NAME}-test test/test_multi_agent_planner.cpp)

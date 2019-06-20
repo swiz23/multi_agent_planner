@@ -165,7 +165,7 @@ void Agent_Robot::agent_build_agent_marker()
 
 /// @brief Service called by the user to update the goal pose of the agent
 /// @param req - service request including the 2D pose of the agent
-/// @param res - service response (not used)
+/// @param res - service response containing the list of points representing the planned path (needed for Unit Test)
 bool Agent_Robot::agent_update_goal(multi_agent_planner::update_goal::Request &req, multi_agent_planner::update_goal::Response &res)
 {
     // Some Input Validation...
@@ -214,6 +214,7 @@ bool Agent_Robot::agent_update_goal(multi_agent_planner::update_goal::Request &r
             // to traverse one edge. Divide by 30 to account for the timer and the
             // result is 0.02667 meters/cycle.
             point_list = srv.response.path;
+            res.path = point_list;
             int segments{};
             segments = point_list.size() - 1;
             dt_position = (segments/period)/timer_hz;

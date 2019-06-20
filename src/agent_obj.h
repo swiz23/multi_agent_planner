@@ -63,7 +63,7 @@ private:
 
     /// @brief Service called by the user to update the goal pose of the agent
     /// @param req - service request including the 2D pose of the agent
-    /// @param res - service response (not used)
+    /// @param res - service response containing the list of points representing the planned path (needed for Unit Test)
     bool agent_update_goal(multi_agent_planner::update_goal::Request &req, multi_agent_planner::update_goal::Response &res);
 
 };

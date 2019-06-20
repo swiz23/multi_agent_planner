@@ -232,7 +232,7 @@ geometry_msgs::Point Motion_Planner::planner_check_collision(const struct Path c
 
 /// @brief Service called to plan the path
 /// @param req - Service request containing the serial_id and goal_pose for an agent
-/// @param res - Serivce response containing the list of points represting the planned path
+/// @param res - Serivce response containing the list of points representing the planned path
 bool Motion_Planner::planner_get_plan(multi_agent_planner::get_plan::Request &req, multi_agent_planner::get_plan::Response &res)
 {
     // round the goal input to the nearest integer just in case the user entered a 'non-integer' number

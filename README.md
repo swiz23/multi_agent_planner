@@ -71,4 +71,4 @@ The following is a list of additional features.
 
 ### Future Work
 
-Although this package contains a good amount of features, there are a couple things that can make it even better. For example, right now, it is not so easy to add obstacles into the world. However, adding another service in the *motion_planner_node* to take in two integers describing a node position and which would subsequently modify the grid could be a solution. Secondly, a unit test could be created to make sure the algorithm works as expected for various starting and goal poses.
+Although this package contains a good amount of features, there are a couple things that can make it even better. For example, right now, it is not so easy to add obstacles into the world. However, adding another service in the *motion_planner_node* to take in two integers describing a node position and which would subsequently modify the grid could be a solution. Secondly, more unit tests could be created to make sure the algorithm works as expected for various starting and goal poses.
