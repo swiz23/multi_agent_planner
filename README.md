@@ -7,7 +7,7 @@ Created by Solomon Wiznitzer as a solution for a coding challenge.
 - *Creating a Roadmap* - This part included configuring Rviz to display a 10x10 grid with (0,0) being at the bottom left corner and (10,10) being at the top right corner. It also entailed drawing a marker representation of all the nodes.
 - *Coding the Planner node* - As its name suggests, this involved implementing an algorithm to determine the minimum distance path from a robot's initial starting position to a user-specified goal position. Additionally, the node was responsible for archiving the planned paths so that they could be used for collision detection.
 - *Coding the Agent node* - The third part required building a node that would take in a user-specified goal position via a ROS service, request the planned path from the Planner node, and then publish the robot and path markers in Rviz.
-- *Testing the system* - In this last part, a launch file was used to start up two robots at specific starting positions. A ROS service hosted by the Agent node was then used (via the Linux Terminal) to update the goal positions to certain values and watch as the paths were displayed on Rviz.
+- *Testing the system* - In this last part, a launch file was used to start up two robots at specific starting positions. A ROS service hosted by the Agent node was then used (via the Linux Terminal or from the unit tests) to update the goal positions to certain values and watch as the paths were displayed on Rviz.
 
 **System Info:** This package was tested on Ubuntu Linux 16.04 with ROS Kinetic.
 
@@ -43,6 +43,7 @@ The following is a list of additional features.
  - Designing for scalability; there is no reason more agents cannot be inserted. All that would need to be done is to add another `agent_node` to the launch file and another Marker display in Rviz.
  - The system can work with obstacles in the grid as well.
  - Both nodes were implemented as objects in code. As a result, it is a simple matter of changing a parameter or two in the constructor to make the grid larger or smaller, change the `edge_cost` value, or change the speed it takes for a robot to traverse the path.
+ - Testing the system via unit tests (using rostest/gtest). The unit tests call the `update_goal` rosservice automatically with pre-configured goal poses. Besides for animating the agents in Rviz, it also checks to make sure that the planned paths are correct. To run the tests, just type `rostest multi_agent_planner agents.test` in the command terminal.
 
  Just for fun, I decided to run the system with four agents. Below is a GIF showing the result. The yellow nodes represent obstacles in the world. A video of this can be found in the `media` directory. Note how the brown agent is also rotating (in this case, 180 degrees).
 
